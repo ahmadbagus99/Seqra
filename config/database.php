@@ -58,9 +58,26 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                Pdo\Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            'options' => extension_loaded('pdo_mysql')
+                ? (static function () {
+                    $sslCa = env('MYSQL_ATTR_SSL_CA');
+                    if (empty($sslCa)) {
+                        return [];
+                    }
+
+                    // PHP 8.5+ deprecates PDO::MYSQL_ATTR_SSL_CA in favor of Pdo\Mysql::ATTR_SSL_CA.
+                    // But PHP 8.3 may not have the Pdo\Mysql class, so we need a safe fallback.
+                    if (class_exists('Pdo\\Mysql') && defined('Pdo\\Mysql::ATTR_SSL_CA')) {
+                        return [Pdo\Mysql::ATTR_SSL_CA => $sslCa];
+                    }
+
+                    if (defined('PDO::MYSQL_ATTR_SSL_CA')) {
+                        return [PDO::MYSQL_ATTR_SSL_CA => $sslCa];
+                    }
+
+                    return [];
+                })()
+                : [],
         ],
 
         'pgsql' => [
